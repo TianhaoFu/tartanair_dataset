@@ -106,69 +106,54 @@ class TartanAir(object):
             self.alert("Trajectory id out of range[0, {}]".format(
                 self.trajs_len-1), "ERROR")
         self.frequency = self.get_property("fps")
-
-    def run(self):
-        traj_dir = self.trajlist[self.traj_id]
-        left_img_list = self.get_image_list(traj_dir, left_right='left')
-        print('Find {} left images in {}'.format(len(left_img_list), traj_dir))
-
-        right_img_list = self.get_image_list(traj_dir, left_right='right')
-        print('Find {} right images in {}'.format(
-            len(right_img_list), traj_dir))
-
-        left_depth_list = self.get_depth_list(traj_dir, left_right='left')
-        print('Find {} left depth files in {}'.format(
-            len(left_depth_list), traj_dir))
-
-        right_depth_list = self.get_depth_list(traj_dir, left_right='right')
-        print('Find {} right depth files in {}'.format(
-            len(right_depth_list), traj_dir))
-
-        left_seg_list = self.get_seg_list(traj_dir, left_right='left')
-        print('Find {} left segmentation files in {}'.format(
-            len(left_seg_list), traj_dir))
-
-        right_seg_list = self.get_seg_list(traj_dir, left_right='left')
-        print('Find {} right segmentation files in {}'.format(
-            len(right_seg_list), traj_dir))
-
-        flow_list = self.get_flow_list(traj_dir)
-        print('Find {} flow files in {}'.format(len(flow_list), traj_dir))
-
-        flow_mask_list = self.get_flow_mask_list(traj_dir)
-        print('Find {} flow mask files in {}'.format(
-            len(flow_mask_list), traj_dir))
-
-        left_pose_file = self.get_posefile(traj_dir, left_right='left')
-        print('Left pose file: {}'.format(left_pose_file))
-
-        right_pose_file = self.get_posefile(traj_dir, left_right='right')
-        print('Right pose file: {}'.format(right_pose_file))
+        self.traj_dir = self.trajlist[self.traj_id]
+        # Load Images List
+        self.left_img_list = self.get_image_list(
+            self.traj_dir, left_right='left')
+        print('Find {} left images in {}'.format(
+            len(self.left_img_list), self.traj_dir))
+        self.right_img_list = self.get_image_list(
+            self.traj_dir, left_right='right')
+        self.left_depth_list = self.get_depth_list(
+            self.traj_dir, left_right='left')
+        self.right_depth_list = self.get_depth_list(
+            self.traj_dir, left_right='right')
+        self.left_seg_list = self.get_seg_list(
+            self.traj_dir, left_right='left')
+        self.right_seg_list = self.get_seg_list(
+            self.traj_dir, left_right='left')
+        self.flow_list = self.get_flow_list(self.traj_dir)
+        self.flow_mask_list = self.get_flow_mask_list(self.traj_dir)
+        self.left_pose_file = self.get_posefile(
+            self.traj_dir, left_right='left')
+        self.right_pose_file = self.get_posefile(
+            self.traj_dir, left_right='right')
         # Load poses
         bc = self.container_client.get_blob_client(
-            blob=left_pose_file)
+            blob=self.left_pose_file)
         data = bc.download_blob()
         text_file = open("OutputL.txt", "w")
         text_file.write(data.content_as_text())
         text_file.close()
-        pose_l = np.loadtxt("OutputL.txt")
+        self.pose_l = np.loadtxt("OutputL.txt")
         bc = self.container_client.get_blob_client(
-            blob=left_pose_file)
+            blob=self.right_pose_file)
         data = bc.download_blob()
         text_file = open("OutputR.txt", "w")
         text_file.write(data.content_as_text())
         text_file.close()
-        pose_r = np.loadtxt("OutputR.txt")
+        self.pose_r = np.loadtxt("OutputR.txt")
 
+    def run(self):
         ltime = time.time()
         idx = 0
         while True:
             if(time.time() - ltime >= 1/self.frequency):
-                if(idx == len(left_img_list)):
+                if(idx == len(self.left_img_list)):
                     idx = 0
                 # RGB Images
-                left_img = self.read_image_file(left_img_list[idx])
-                right_img = self.read_image_file(right_img_list[idx])
+                left_img = self.read_image_file(self.left_img_list[idx])
+                right_img = self.read_image_file(self.right_img_list[idx])
                 header = Header()
                 set_timestamp(header, time.time())
                 header.frame_id = "left_img"
@@ -178,23 +163,23 @@ class TartanAir(object):
                 right_msg = from_ndarray(right_img, header)
                 self.publish("right_img", right_msg)
                 # Depth Images
-                left_depth = self.read_numpy_file(left_depth_list[idx])
+                left_depth = self.read_numpy_file(self.left_depth_list[idx])
                 left_depth_vis = depth2vis(left_depth)
                 header.frame_id = "left_depth"
                 left_msg = from_ndarray(left_depth_vis, header)
                 self.publish("left_depth", left_msg)
-                right_depth = self.read_numpy_file(right_depth_list[idx])
+                right_depth = self.read_numpy_file(self.right_depth_list[idx])
                 right_depth_vis = depth2vis(right_depth)
                 header.frame_id = "right_depth"
                 right_msg = from_ndarray(right_depth_vis, header)
                 self.publish("right_depth", right_msg)
                 # Semantic Segmentation
-                left_seg = self.read_numpy_file(left_seg_list[idx])
+                left_seg = self.read_numpy_file(self.left_seg_list[idx])
                 left_seg_vis = seg2vis(left_seg)
                 header.frame_id = "left_segmentation"
                 left_msg = from_ndarray(left_seg_vis, header)
                 self.publish("left_segmentation", left_msg)
-                right_seg = self.read_numpy_file(right_seg_list[idx])
+                right_seg = self.read_numpy_file(self.right_seg_list[idx])
                 right_seg_vis = seg2vis(right_seg)
                 header.frame_id = "right_segmentation"
                 right_msg = from_ndarray(right_seg_vis, header)
@@ -204,13 +189,13 @@ class TartanAir(object):
                 pose_stamped.header = header
                 pose_stamped.header.frame_id = "left_camera"
                 pose = Pose()
-                pose.position.x = pose_l[idx][0]
-                pose.position.y = pose_l[idx][1]
-                pose.position.z = pose_l[idx][2]
-                pose.orientation.x = pose_l[idx][3]
-                pose.orientation.y = pose_l[idx][4]
-                pose.orientation.z = pose_l[idx][5]
-                pose.orientation.w = pose_l[idx][6]
+                pose.position.x = self.pose_l[idx][0]
+                pose.position.y = self.pose_l[idx][1]
+                pose.position.z = self.pose_l[idx][2]
+                pose.orientation.x = self.pose_l[idx][3]
+                pose.orientation.y = self.pose_l[idx][4]
+                pose.orientation.z = self.pose_l[idx][5]
+                pose.orientation.w = self.pose_l[idx][6]
                 pose_stamped.pose = pose
                 self.publish("left_pose", pose_stamped)
                 # Right Camera Pose
@@ -218,23 +203,24 @@ class TartanAir(object):
                 pose_stamped.header = header
                 pose_stamped.header.frame_id = "right_camera"
                 pose = Pose()
-                pose.position.x = pose_r[idx][0]
-                pose.position.y = pose_r[idx][1]
-                pose.position.z = pose_r[idx][2]
-                pose.orientation.x = pose_r[idx][3]
-                pose.orientation.y = pose_r[idx][4]
-                pose.orientation.z = pose_r[idx][5]
-                pose.orientation.w = pose_r[idx][6]
+                pose.position.x = self.pose_r[idx][0]
+                pose.position.y = self.pose_r[idx][1]
+                pose.position.z = self.pose_r[idx][2]
+                pose.orientation.x = self.pose_r[idx][3]
+                pose.orientation.y = self.pose_r[idx][4]
+                pose.orientation.z = self.pose_r[idx][5]
+                pose.orientation.w = self.pose_r[idx][6]
                 pose_stamped.pose = pose
                 self.publish("right_pose", pose_stamped)
 
                 if(idx > 0):
-                    flow = self.read_numpy_file(flow_list[idx-1])
+                    flow = self.read_numpy_file(self.flow_list[idx-1])
                     flow_vis = flow2vis(flow)
                     header.frame_id = "optical_flow"
                     left_msg = from_ndarray(flow_vis, header)
                     self.publish("optical_flow", left_msg)
-                    flow_mask = self.read_numpy_file(flow_mask_list[idx-1])
+                    flow_mask = self.read_numpy_file(
+                        self.flow_mask_list[idx-1])
                     flow_vis_w_mask = flow2vis(flow, mask=flow_mask)
                     header.frame_id = "optical_flow_mask"
                     right_msg = from_ndarray(flow_vis_w_mask, header)
@@ -242,6 +228,9 @@ class TartanAir(object):
 
                 ltime = time.time()
                 idx += 1
+
+    def on_properties_changed(self, affected_properties):
+        self.on_start()
 
     def get_environment_list(self):
         '''
